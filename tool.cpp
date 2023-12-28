@@ -2,9 +2,7 @@
 #include <filesystem>
 #include <iostream>
 #include <utility>
-#include <memory>
 #include <yaml-cpp/yaml.h>
-// ./tool.exe unity_project_path output_folder_path
 
 using tag_t = long long;
 
@@ -49,7 +47,7 @@ private:
             f_out << "--";
         }
         f_out << scene_nodes[anchor_tags[game_object_tag]].begin()->second["m_Name"].as<std::string>() << '\n';
-        if (fields["m_Children"].IsSequence()) {
+        if (fields["m_Children"] && fields["m_Children"].IsSequence()) {
             for (const auto &child: fields["m_Children"]) {
                 dump_node_hierarchy(scene_nodes[anchor_tags[child.begin()->second.as<tag_t>()]], f_out, depth + 1);
             }
@@ -152,6 +150,35 @@ int main(int argc, char **argv) {
     }
     std::string unity_project_path = argv[1];
     std::string output_folder_path = argv[2];
+
+    if (!std::filesystem::exists(unity_project_path)) {
+        std::cerr << "Directory " << unity_project_path << " doesn't exist\n";
+        return 1;
+    }
+
+    if (!std::filesystem::exists(output_folder_path)) {
+        std::cout << "Directory " << unity_project_path << " doesn't exist\n" <<
+                  "Create new directory " << unity_project_path << "? [y/n]\n";
+        while (true) {
+            std::string answer;
+            std::cin >> answer;
+            if (answer.starts_with('y') || answer.starts_with('Y')) {
+                if (std::filesystem::create_directory(output_folder_path)) {
+                    std::cout << "Directory " << output_folder_path << " was created\n";
+                    break;
+                } else {
+                    std::cerr << "Failed to create directory: " << output_folder_path << '\n';
+                    return 1;
+                }
+            } else if (answer.starts_with('n') || answer.starts_with('N')) {
+                std::cerr << "Directory " << unity_project_path << " doesn't exist\n";
+                return 1;
+            } else {
+                std::cout << "Create new directory " << unity_project_path << "?\n" <<
+                          "Type 'y' or 'n' to continue.\n";
+            }
+        }
+    }
 
     UnusedScriptsDetector unused_detector(unity_project_path);
     unused_detector.dump_unused_scripts(output_folder_path);
